@@ -102,6 +102,10 @@ class ProductController extends Controller
                 ),
             ]);
 
+            if (!$request->hasFile('image')) {
+                $request->request->remove('image');
+            }
+
             $validated = $request->validate([
 
                 'category_id' => [
@@ -203,6 +207,8 @@ class ProductController extends Controller
 
             $validated['sold_count'] =
                 $validated['sold_count'] ?? 0;
+
+            unset($validated['image']);
 
             /*
             |--------------------------------------------------------------------------
@@ -416,6 +422,10 @@ class ProductController extends Controller
                 ),
             ]);
 
+            if (!$request->hasFile('image')) {
+                $request->request->remove('image');
+            }
+
             $product =
                 Product::findOrFail($id);
 
@@ -506,6 +516,8 @@ class ProductController extends Controller
 
             $validated['sold_count'] =
                 $validated['sold_count'] ?? 0;
+
+            unset($validated['image']);
 
             /*
             |--------------------------------------------------------------------------
