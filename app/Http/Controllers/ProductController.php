@@ -259,6 +259,11 @@ class ProductController extends Controller
                     );
             }
 
+            dd([
+                'hasFile' => $request->hasFile('image'),
+                'validated' => $validated,
+            ]);
+
             /*
             |--------------------------------------------------------------------------
             | CREATE PRODUCT
