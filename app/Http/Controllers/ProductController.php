@@ -14,6 +14,23 @@ use App\Models\ProductVariantItem;
 
 class ProductController extends Controller
 {
+    private function storeProductImage($file): string
+    {
+        $path =
+            $file->store(
+                'products',
+                'public'
+            );
+
+        if (!$path || !is_string($path)) {
+            throw new Exception(
+                'Gagal upload gambar produk. Cek permission storage/app/public dan symbolic link public/storage.'
+            );
+        }
+
+        return $path;
+    }
+
     /*
     |--------------------------------------------------------------------------
     | INDEX
@@ -251,18 +268,10 @@ class ProductController extends Controller
             if ($request->hasFile('image')) {
 
                 $validated['image'] =
-                    $request
-                    ->file('image')
-                    ->store(
-                        'products',
-                        'public'
+                    $this->storeProductImage(
+                        $request->file('image')
                     );
             }
-
-            dd([
-                'hasFile' => $request->hasFile('image'),
-                'validated' => $validated,
-            ]);
 
             /*
             |--------------------------------------------------------------------------
@@ -375,9 +384,8 @@ class ProductController extends Controller
                 ) {
 
                     $path =
-                        $imageFile->store(
-                            'products',
-                            'public'
+                        $this->storeProductImage(
+                            $imageFile
                         );
 
                     ProductImage::create([
@@ -571,11 +579,8 @@ class ProductController extends Controller
             if ($request->hasFile('image')) {
 
                 $validated['image'] =
-                    $request
-                    ->file('image')
-                    ->store(
-                        'products',
-                        'public'
+                    $this->storeProductImage(
+                        $request->file('image')
                     );
             }
 
@@ -617,9 +622,8 @@ class ProductController extends Controller
                 ) {
 
                     $path =
-                        $imageFile->store(
-                            'products',
-                            'public'
+                        $this->storeProductImage(
+                            $imageFile
                         );
 
                     ProductImage::create([
