@@ -20,6 +20,7 @@ class AuthController extends Controller
         $user = User::create([
             'name' => $validated['name'],
             'phone' => $validated['phone'],
+            'role' => null,
             'password' => Hash::make($validated['password']),
         ]);
 
@@ -38,7 +39,9 @@ class AuthController extends Controller
             'password' => ['required'],
         ]);
 
-        $user = User::where('phone', $validated['phone'])->first();
+        $user = User::where('phone', $validated['phone'])
+            ->whereNull('role')
+            ->first();
 
         if (!$user || !Hash::check($validated['password'], $user->password)) {
             return response()->json([
@@ -46,7 +49,42 @@ class AuthController extends Controller
             ], 401);
         }
 
+        if (! $user->is_active) {
+            return response()->json([
+                'message' => 'Akun Anda sedang dinonaktifkan.',
+            ], 403);
+        }
+
         $token = $user->createToken('auth_token')->plainTextToken;
+
+        return response()->json([
+            'user' => $user,
+            'token' => $token,
+        ]);
+    }
+
+    public function adminLogin(Request $request)
+    {
+        $validated = $request->validate([
+            'email' => ['required', 'email'],
+            'password' => ['required'],
+        ]);
+
+        $user = User::where('email', $validated['email'])->first();
+
+        if (! $user || ! $user->isAdmin() || ! Hash::check($validated['password'], $user->password)) {
+            return response()->json([
+                'message' => 'Email atau password admin salah.',
+            ], 401);
+        }
+
+        if (! $user->is_active) {
+            return response()->json([
+                'message' => 'Akun admin sedang dinonaktifkan.',
+            ], 403);
+        }
+
+        $token = $user->createToken('admin_auth_token')->plainTextToken;
 
         return response()->json([
             'user' => $user,

@@ -12,9 +12,31 @@ class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable;
 
+    public const ROLE_SUPER_ADMIN = 'super_admin';
+
+    public const ROLE_ADMIN = 'admin';
+
+    public const ADMIN_ROLES = [
+        self::ROLE_SUPER_ADMIN,
+        self::ROLE_ADMIN,
+    ];
+
+    public function isAdmin(): bool
+    {
+        return in_array($this->role, self::ADMIN_ROLES, true);
+    }
+
+    public function isSuperAdmin(): bool
+    {
+        return $this->role === self::ROLE_SUPER_ADMIN;
+    }
+
     protected $fillable = [
         'name',
         'phone',
+        'email',
+        'role',
+        'is_active',
         'password',
     ];
 
@@ -27,6 +49,7 @@ class User extends Authenticatable
     {
         return [
             'password' => 'hashed',
+            'is_active' => 'boolean',
         ];
     }
 }

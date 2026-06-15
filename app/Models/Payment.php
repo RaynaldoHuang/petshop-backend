@@ -14,6 +14,8 @@ class Payment extends Model
         'payment_method',
         'type',
         'gross_amount',
+        'admin_fee_amount',
+        'admin_fee_tax',
         'qr_url',
         'va_number',
         'bank',

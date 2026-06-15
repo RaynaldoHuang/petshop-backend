@@ -21,20 +21,33 @@ class CategoryController extends Controller
         );
     }
 
+    public function adminIndex()
+    {
+        return response()->json(
+            Category::withCount('products')
+                ->orderBy('name')
+                ->get()
+        );
+    }
+
     /**
      * POST /api/categories
      */
     public function store(Request $request)
 
     {
-        $request->validate([
-            'name' => 'required|string|max:255',
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255', 'unique:categories,name'],
+            'is_active' => ['nullable'],
         ]);
 
         $category = Category::create([
-            'name' => $request->name,
-            'slug' => Str::slug($request->name),
-            'is_active' => $request->is_active ?? true,
+            'name' => $validated['name'],
+            'slug' => Str::slug($validated['name']),
+            'is_active' => filter_var(
+                $request->input('is_active', true),
+                FILTER_VALIDATE_BOOLEAN
+            ),
         ]);
 
         return response()->json($category);
@@ -58,13 +71,13 @@ class CategoryController extends Controller
         $category = Category::findOrFail($id);
 
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
+            'name' => ['required', 'string', 'max:255', 'unique:categories,name,' . $category->id],
             'is_active' => ['nullable'],
         ]);
 
         $category->update([
             'name' => $validated['name'],
-            'slug' => Str::slug($validated['name']) . '-' . Str::random(4),
+            'slug' => Str::slug($validated['name']),
             'is_active' => filter_var($request->is_active, FILTER_VALIDATE_BOOLEAN),
         ]);
 
@@ -76,10 +89,18 @@ class CategoryController extends Controller
      */
     public function destroy($id)
     {
-        Category::findOrFail($id)->delete();
+        $category = Category::withCount('products')->findOrFail($id);
+
+        if ($category->products_count > 0) {
+            return response()->json([
+                'message' => 'Kategori masih digunakan oleh produk dan tidak dapat dihapus.',
+            ], 422);
+        }
+
+        $category->delete();
 
         return response()->json([
-            'message' => 'Category deleted',
+            'message' => 'Kategori berhasil dihapus.',
         ]);
     }
 }

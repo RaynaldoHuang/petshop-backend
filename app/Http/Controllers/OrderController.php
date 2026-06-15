@@ -29,10 +29,24 @@ class OrderController extends Controller
             'items.*.quantity' => ['required', 'integer', 'min:1'],
         ]);
 
-        $order = DB::transaction(function () use ($validated) {
+        if (! $request->user()->isAdmin() &&
+            $request->user()->phone !== $validated['customer_phone']) {
+            return response()->json([
+                'message' => 'Nomor telepon pesanan harus sama dengan akun yang sedang login.',
+            ], 422);
+        }
+
+        $order = DB::transaction(function () use ($validated, $request) {
             $totalPrice = 0;
+            $items = collect($validated['items'])
+                ->groupBy('id')
+                ->map(fn ($rows, $productId) => [
+                    'id' => (int) $productId,
+                    'quantity' => $rows->sum('quantity'),
+                ]);
 
             $order = Order::create([
+                'user_id' => $request->user()->id,
                 'customer_name' => $validated['customer_name'],
                 'customer_phone' => $validated['customer_phone'],
                 'shipping_address' => $validated['shipping_address'],
@@ -41,15 +55,26 @@ class OrderController extends Controller
                 'order_status' => 'new',
             ]);
 
-            foreach ($validated['items'] as $item) {
-                $product = Product::findOrFail($item['id']);
+            foreach ($items as $item) {
+                $product = Product::with('flashSale')
+                    ->lockForUpdate()
+                    ->findOrFail($item['id']);
                 $quantity = $item['quantity'];
-                $subtotal = $product->price * $quantity;
+
+                abort_unless($product->is_active, 422, "{$product->name} sedang tidak aktif.");
+                abort_unless(
+                    $quantity <= (int) $product->stock,
+                    422,
+                    "Stok {$product->name} tidak mencukupi."
+                );
+
+                $unitPrice = $this->effectiveProductPrice($product);
+                $subtotal = $unitPrice * $quantity;
 
                 $order->items()->create([
                     'product_id' => $product->id,
                     'product_name' => $product->name,
-                    'price' => $product->price,
+                    'price' => $unitPrice,
                     'quantity' => $quantity,
                     'subtotal' => $subtotal,
                 ]);
@@ -68,6 +93,20 @@ class OrderController extends Controller
             'message' => 'Order berhasil dibuat',
             'data' => $order,
         ], 201);
+    }
+
+    private function effectiveProductPrice(Product $product): int
+    {
+        if ($product->flashSale) {
+            return (int) $product->flashSale->discount_price;
+        }
+
+        $price = (int) $product->price;
+        $discountPrice = (int) $product->discount_price;
+
+        return $discountPrice > 0 && $discountPrice < $price
+            ? $discountPrice
+            : $price;
     }
 
     public function updateStatus(Request $request, $id)
@@ -96,10 +135,14 @@ class OrderController extends Controller
             'items',
             'latestPayment',
         ])
-            ->where(
-                'customer_phone',
-                $user->phone
-            )
+            ->where(function ($query) use ($user) {
+                $query->where('user_id', $user->id)
+                    ->orWhere(function ($legacyQuery) use ($user) {
+                        $legacyQuery
+                            ->whereNull('user_id')
+                            ->where('customer_phone', $user->phone);
+                    });
+            })
             ->latest()
             ->get();
 
@@ -117,10 +160,14 @@ class OrderController extends Controller
             'items',
             'payments'
         ])
-            ->where(
-                'customer_phone',
-                $user->phone
-            )
+            ->where(function ($query) use ($user) {
+                $query->where('user_id', $user->id)
+                    ->orWhere(function ($legacyQuery) use ($user) {
+                        $legacyQuery
+                            ->whereNull('user_id')
+                            ->where('customer_phone', $user->phone);
+                    });
+            })
             ->findOrFail($id);
 
         return response()->json(

@@ -1,0 +1,122 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Laravel\Sanctum\Sanctum;
+use Tests\TestCase;
+
+class AdminAuthorizationTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_customer_cannot_access_admin_endpoints(): void
+    {
+        $customer = User::factory()->create([
+            'role' => null,
+        ]);
+
+        Sanctum::actingAs($customer);
+
+        $this->getJson('/api/admin/dashboard')
+            ->assertForbidden();
+    }
+
+    public function test_admin_can_access_dashboard_and_manage_payment_methods(): void
+    {
+        $admin = User::factory()->create([
+            'role' => User::ROLE_ADMIN,
+        ]);
+
+        Sanctum::actingAs($admin);
+
+        $this->getJson('/api/admin/dashboard')
+            ->assertOk()
+            ->assertJsonStructure([
+                'stats' => [
+                    'revenue',
+                    'orders',
+                    'pending_orders',
+                    'products',
+                    'customers',
+                    'active_payment_methods',
+                ],
+                'recent_orders',
+                'low_stock_products',
+            ]);
+
+        $this->postJson('/api/admin/payment-methods', [
+            'name' => 'BNI Virtual Account',
+            'code' => 'bni',
+            'fee' => 4000,
+            'fee_percentage' => 0.7,
+            'is_active' => true,
+            'sort_order' => 2,
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.type', 'bank_transfer')
+            ->assertJsonPath('data.fee_percentage', 0.7);
+    }
+
+    public function test_only_super_admin_can_manage_admin_accounts(): void
+    {
+        $admin = User::factory()->create([
+            'role' => User::ROLE_ADMIN,
+        ]);
+
+        Sanctum::actingAs($admin);
+
+        $this->getJson('/api/admin/users')
+            ->assertForbidden();
+
+        $superAdmin = User::factory()->create([
+            'role' => User::ROLE_SUPER_ADMIN,
+        ]);
+
+        Sanctum::actingAs($superAdmin);
+
+        $this->postJson('/api/admin/users', [
+            'name' => 'Admin Operasional',
+            'email' => 'operator@example.com',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'role' => User::ROLE_ADMIN,
+            'is_active' => true,
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.role', User::ROLE_ADMIN);
+    }
+
+    public function test_admin_login_uses_email_and_password(): void
+    {
+        User::factory()->create([
+            'email' => 'admin@example.com',
+            'role' => User::ROLE_ADMIN,
+            'password' => 'password123',
+        ]);
+
+        $this->postJson('/api/admin/login', [
+            'email' => 'admin@example.com',
+            'password' => 'password123',
+        ])
+            ->assertOk()
+            ->assertJsonPath('user.role', User::ROLE_ADMIN);
+    }
+
+    public function test_public_registration_creates_a_customer_without_admin_role(): void
+    {
+        $this->postJson('/api/register', [
+            'name' => 'Customer Baru',
+            'phone' => '081200000001',
+            'password' => 'password',
+            'password_confirmation' => 'password',
+            'role' => User::ROLE_ADMIN,
+        ])->assertOk();
+
+        $this->assertDatabaseHas('users', [
+            'phone' => '081200000001',
+            'role' => null,
+        ]);
+    }
+}

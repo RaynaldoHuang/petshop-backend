@@ -70,6 +70,24 @@ class MidtransService
     /**
      * @return mixed
      */
+    public function createMandiriBill(array $data)
+    {
+        return CoreApi::charge([
+            'payment_type' => 'echannel',
+            'transaction_details' => [
+                'order_id' => $data['order_id'],
+                'gross_amount' => $data['gross_amount'],
+            ],
+            'echannel' => [
+                'bill_info1' => 'Pembayaran',
+                'bill_info2' => 'Lucky Pet Market',
+            ],
+        ]);
+    }
+
+    /**
+     * @return mixed
+     */
     public function getTransactionStatus(
         string $orderId
     ) {

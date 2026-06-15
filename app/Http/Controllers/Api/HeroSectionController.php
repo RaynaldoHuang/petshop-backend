@@ -50,17 +50,14 @@ class HeroSectionController extends Controller
         $hero = HeroSection::findOrFail($id);
 
         $validated = $request->validate([
-            'main_title' => ['nullable', 'string', 'max:255'],
-            'main_description' => ['nullable', 'string'],
-            'main_button_text' => ['nullable', 'string', 'max:100'],
-            'main_button_link' => ['nullable', 'string', 'max:255'],
-            'main_image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+            'link' => ['nullable', 'string'],
+            'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
             'is_active' => ['nullable'],
             'sort_order' => ['nullable', 'integer'],
         ]);
 
-        if ($request->hasFile('main_image')) {
-            $validated['main_image'] = $request->file('main_image')->store('hero', 'public');
+        if ($request->hasFile('image')) {
+            $validated['image'] = $request->file('image')->store('hero', 'public');
         }
 
         $validated['is_active'] = filter_var($request->is_active, FILTER_VALIDATE_BOOLEAN);

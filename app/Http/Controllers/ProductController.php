@@ -67,6 +67,15 @@ class ProductController extends Controller
         );
     }
 
+    public function adminIndex()
+    {
+        return response()->json(
+            Product::with(['category'])
+                ->orderByDesc('id')
+                ->get()
+        );
+    }
+
     /*
     |--------------------------------------------------------------------------
     | SHOW
