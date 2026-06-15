@@ -71,4 +71,53 @@ class AdminUserController extends Controller
             ]),
         ]);
     }
+
+    public function updatePassword(Request $request, User $user)
+    {
+        abort_unless($user->isAdmin(), 404);
+
+        $validated = $request->validate([
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+        ]);
+
+        $user->update([
+            'password' => Hash::make($validated['password']),
+        ]);
+
+        if (! $request->user()->is($user)) {
+            $user->tokens()->delete();
+        }
+
+        return response()->json([
+            'message' => "Password {$user->name} berhasil diperbarui.",
+        ]);
+    }
+
+    public function destroy(Request $request, User $user)
+    {
+        abort_unless($user->isAdmin(), 404);
+
+        if ($request->user()->is($user)) {
+            return response()->json([
+                'message' => 'Akun yang sedang digunakan tidak dapat dihapus.',
+            ], 422);
+        }
+
+        if (
+            $user->isSuperAdmin()
+            && User::where('role', User::ROLE_SUPER_ADMIN)->count() <= 1
+        ) {
+            return response()->json([
+                'message' => 'Super admin terakhir tidak dapat dihapus.',
+            ], 422);
+        }
+
+        $name = $user->name;
+        $user->tokens()->delete();
+        $user->delete();
+
+        return response()->json([
+            'message' => "Akun {$name} berhasil dihapus.",
+        ]);
+    }
 }

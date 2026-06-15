@@ -68,6 +68,8 @@ Route::prefix('admin')
             Route::get('/users', [AdminUserController::class, 'index']);
             Route::post('/users', [AdminUserController::class, 'store']);
             Route::put('/users/{user}', [AdminUserController::class, 'update']);
+            Route::put('/users/{user}/password', [AdminUserController::class, 'updatePassword']);
+            Route::delete('/users/{user}', [AdminUserController::class, 'destroy']);
         });
         Route::get('/customers', [CustomerController::class, 'index']);
 

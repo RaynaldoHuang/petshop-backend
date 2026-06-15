@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -102,6 +103,45 @@ class AdminAuthorizationTest extends TestCase
         ])
             ->assertOk()
             ->assertJsonPath('user.role', User::ROLE_ADMIN);
+    }
+
+    public function test_super_admin_can_change_admin_password_and_delete_admin_account(): void
+    {
+        $superAdmin = User::factory()->create([
+            'role' => User::ROLE_SUPER_ADMIN,
+        ]);
+        $admin = User::factory()->create([
+            'role' => User::ROLE_ADMIN,
+            'password' => 'old-password',
+        ]);
+
+        Sanctum::actingAs($superAdmin);
+
+        $this->putJson("/api/admin/users/{$admin->id}/password", [
+            'password' => 'new-password123',
+            'password_confirmation' => 'new-password123',
+        ])->assertOk();
+
+        $this->assertTrue(Hash::check('new-password123', $admin->fresh()->password));
+
+        $this->deleteJson("/api/admin/users/{$admin->id}")
+            ->assertOk();
+
+        $this->assertDatabaseMissing('users', ['id' => $admin->id]);
+    }
+
+    public function test_super_admin_cannot_delete_own_account(): void
+    {
+        $superAdmin = User::factory()->create([
+            'role' => User::ROLE_SUPER_ADMIN,
+        ]);
+
+        Sanctum::actingAs($superAdmin);
+
+        $this->deleteJson("/api/admin/users/{$superAdmin->id}")
+            ->assertUnprocessable();
+
+        $this->assertDatabaseHas('users', ['id' => $superAdmin->id]);
     }
 
     public function test_public_registration_creates_a_customer_without_admin_role(): void
