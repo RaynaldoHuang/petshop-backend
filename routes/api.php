@@ -14,12 +14,17 @@ use App\Http\Controllers\Api\FlashSaleController;
 use App\Http\Controllers\Api\HeroSectionController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\PaymentMethodController;
+use App\Http\Controllers\Api\RajaOngkirAdminController;
+use App\Http\Controllers\Api\RajaOngkirController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ProductController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
+Route::post('/auth/verify-otp', [AuthController::class, 'verifyOtp']);
+Route::post('/forgot-password/request-otp', [AuthController::class, 'requestPasswordResetOtp']);
+Route::post('/forgot-password/reset', [AuthController::class, 'resetPasswordWithOtp']);
 Route::post('/admin/login', [AuthController::class, 'adminLogin']);
 
 Route::get('/products', [ProductController::class, 'index']);
@@ -33,6 +38,13 @@ Route::get('/hero-sections/active', [HeroSectionController::class, 'active']);
 Route::get('/categories', [CategoryController::class, 'index']);
 Route::get('/flash-sales', [FlashSaleController::class, 'active']);
 
+Route::get('/shipping/provinces', [RajaOngkirController::class, 'provinces']);
+Route::get('/shipping/cities', [RajaOngkirController::class, 'cities']);
+Route::get('/shipping/districts', [RajaOngkirController::class, 'districts']);
+Route::get('/shipping/sub-districts', [RajaOngkirController::class, 'subDistricts']);
+Route::get('/shipping/config', [RajaOngkirController::class, 'config']);
+Route::post('/shipping/costs', [RajaOngkirController::class, 'costs']);
+
 Route::get('/articles', [ArticleController::class, 'index']);
 Route::get('/articles/{slug}/related', [ArticleController::class, 'related']);
 Route::get('/articles/{slug}', [ArticleController::class, 'show']);
@@ -42,6 +54,8 @@ Route::post('/midtrans/notification', [PaymentController::class, 'notification']
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
     Route::post('/logout', [AuthController::class, 'logout']);
+    Route::post('/password/request-change-otp', [AuthController::class, 'requestPasswordChangeOtp']);
+    Route::post('/password/change', [AuthController::class, 'changePassword']);
 
     Route::get('/cart', [CartController::class, 'index']);
     Route::post('/cart', [CartController::class, 'store']);
@@ -114,4 +128,11 @@ Route::prefix('admin')
         Route::post('/payment-methods', [PaymentMethodController::class, 'store']);
         Route::put('/payment-methods/{paymentMethod}', [PaymentMethodController::class, 'update']);
         Route::delete('/payment-methods/{paymentMethod}', [PaymentMethodController::class, 'destroy']);
+
+        Route::get('/rajaongkir', [RajaOngkirAdminController::class, 'show']);
+        Route::put('/rajaongkir/setting', [RajaOngkirAdminController::class, 'updateSetting']);
+        Route::get('/rajaongkir/destinations', [RajaOngkirAdminController::class, 'destinations']);
+        Route::post('/rajaongkir/couriers', [RajaOngkirAdminController::class, 'storeCourier']);
+        Route::put('/rajaongkir/couriers/{courier}', [RajaOngkirAdminController::class, 'updateCourier']);
+        Route::delete('/rajaongkir/couriers/{courier}', [RajaOngkirAdminController::class, 'destroyCourier']);
     });

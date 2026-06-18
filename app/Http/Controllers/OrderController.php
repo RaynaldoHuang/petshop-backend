@@ -24,6 +24,21 @@ class OrderController extends Controller
             'customer_name' => ['required', 'string', 'max:255'],
             'customer_phone' => ['required', 'string', 'max:50'],
             'shipping_address' => ['required', 'string'],
+            'shipping_province_id' => ['nullable', 'string', 'max:50'],
+            'shipping_province' => ['nullable', 'string', 'max:255'],
+            'shipping_city_id' => ['nullable', 'string', 'max:50'],
+            'shipping_city' => ['nullable', 'string', 'max:255'],
+            'shipping_destination_id' => ['nullable', 'string', 'max:50'],
+            'shipping_district_id' => ['nullable', 'string', 'max:50'],
+            'shipping_district' => ['nullable', 'string', 'max:255'],
+            'shipping_subdistrict_id' => ['nullable', 'string', 'max:50'],
+            'shipping_subdistrict' => ['nullable', 'string', 'max:255'],
+            'shipping_zip_code' => ['nullable', 'string', 'max:20'],
+            'shipping_courier' => ['nullable', 'string', 'max:50'],
+            'shipping_service' => ['nullable', 'string', 'max:100'],
+            'shipping_cost' => ['nullable', 'integer', 'min:0'],
+            'shipping_etd' => ['nullable', 'string', 'max:100'],
+            'shipping_weight' => ['nullable', 'integer', 'min:0'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.id' => ['required', 'integer', 'exists:products,id'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
@@ -50,6 +65,21 @@ class OrderController extends Controller
                 'customer_name' => $validated['customer_name'],
                 'customer_phone' => $validated['customer_phone'],
                 'shipping_address' => $validated['shipping_address'],
+                'shipping_province_id' => $validated['shipping_province_id'] ?? null,
+                'shipping_province' => $validated['shipping_province'] ?? null,
+                'shipping_city_id' => $validated['shipping_city_id'] ?? null,
+                'shipping_city' => $validated['shipping_city'] ?? null,
+                'shipping_destination_id' => $validated['shipping_destination_id'] ?? null,
+                'shipping_district_id' => $validated['shipping_district_id'] ?? null,
+                'shipping_district' => $validated['shipping_district'] ?? null,
+                'shipping_subdistrict_id' => $validated['shipping_subdistrict_id'] ?? null,
+                'shipping_subdistrict' => $validated['shipping_subdistrict'] ?? null,
+                'shipping_zip_code' => $validated['shipping_zip_code'] ?? null,
+                'shipping_courier' => $validated['shipping_courier'] ?? null,
+                'shipping_service' => $validated['shipping_service'] ?? null,
+                'shipping_cost' => $validated['shipping_cost'] ?? 0,
+                'shipping_etd' => $validated['shipping_etd'] ?? null,
+                'shipping_weight' => $validated['shipping_weight'] ?? 0,
                 'total_price' => 0,
                 'payment_status' => 'pending',
                 'order_status' => 'new',
@@ -83,7 +113,7 @@ class OrderController extends Controller
             }
 
             $order->update([
-                'total_price' => $totalPrice,
+                'total_price' => $totalPrice + (int) ($validated['shipping_cost'] ?? 0),
             ]);
 
             return $order->load('items');
@@ -158,7 +188,7 @@ class OrderController extends Controller
 
         $order = Order::with([
             'items',
-            'payments'
+            'payments',
         ])
             ->where(function ($query) use ($user) {
                 $query->where('user_id', $user->id)

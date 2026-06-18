@@ -2,27 +2,29 @@
 
 namespace App\Http\Controllers;
 
-use Exception;
-use Illuminate\Http\Request;
-use Illuminate\Support\Str;
-
 use App\Models\Product;
 use App\Models\ProductImage;
 use App\Models\ProductOption;
 use App\Models\ProductOptionValue;
 use App\Models\ProductVariantItem;
+use App\Services\ImageUploadService;
+use Exception;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class ProductController extends Controller
 {
+    public function __construct(
+        private readonly ImageUploadService $imageUploadService
+    ) {}
+
     private function storeProductImage($file): string
     {
         $path =
-            $file->store(
-                'products',
-                'public'
-            );
+            $this->imageUploadService->storeAsWebp($file, 'products');
 
-        if (!$path || !is_string($path)) {
+        if (! $path || ! is_string($path)) {
             throw new Exception(
                 'Gagal upload gambar produk. Cek permission storage/app/public dan symbolic link public/storage.'
             );
@@ -43,7 +45,7 @@ class ProductController extends Controller
             'flashSale',
             'images',
             'options.values',
-            'variants'
+            'variants',
         ])->where('is_active', true);
 
         if ($request->category) {
@@ -102,7 +104,7 @@ class ProductController extends Controller
                 $query
                     ->where('is_active', true)
                     ->latest();
-            }
+            },
 
         ])
             ->where('slug', $slug)
@@ -128,7 +130,7 @@ class ProductController extends Controller
                 ),
             ]);
 
-            if (!$request->hasFile('image')) {
+            if (! $request->hasFile('image')) {
                 $request->request->remove('image');
             }
 
@@ -136,54 +138,54 @@ class ProductController extends Controller
 
                 'category_id' => [
                     'nullable',
-                    'exists:categories,id'
+                    'exists:categories,id',
                 ],
 
                 'name' => [
                     'required',
                     'string',
-                    'max:255'
+                    'max:255',
                 ],
 
                 'slug' => [
                     'nullable',
                     'string',
                     'max:255',
-                    'unique:products,slug'
+                    'unique:products,slug',
                 ],
 
                 'description' => [
                     'nullable',
-                    'string'
+                    'string',
                 ],
 
                 'price' => [
                     'required',
                     'numeric',
-                    'min:0'
+                    'min:0',
                 ],
 
                 'discount_price' => [
                     'nullable',
                     'numeric',
-                    'min:0'
+                    'min:0',
                 ],
 
                 'stock' => [
                     'required',
                     'integer',
-                    'min:0'
+                    'min:0',
                 ],
 
                 'sold_count' => [
                     'nullable',
                     'integer',
-                    'min:0'
+                    'min:0',
                 ],
 
                 'is_active' => [
                     'required',
-                    'boolean'
+                    'boolean',
                 ],
 
                 /*
@@ -195,7 +197,7 @@ class ProductController extends Controller
                     'nullable',
                     'image',
                     'mimes:jpg,jpeg,png,webp',
-                    'max:2048'
+                    'max:2048',
                 ],
 
                 /*
@@ -206,13 +208,13 @@ class ProductController extends Controller
                 'images' => [
                     'nullable',
                     'array',
-                    'max:4'
+                    'max:4',
                 ],
 
                 'images.*' => [
                     'image',
                     'mimes:jpg,jpeg,png,webp',
-                    'max:2048'
+                    'max:2048',
                 ],
 
                 /*
@@ -222,12 +224,12 @@ class ProductController extends Controller
                 */
                 'options' => [
                     'nullable',
-                    'string'
+                    'string',
                 ],
 
                 'variants' => [
                     'nullable',
-                    'string'
+                    'string',
                 ],
             ]);
 
@@ -259,8 +261,8 @@ class ProductController extends Controller
                 ) {
 
                     $slug =
-                        $baseSlug .
-                        '-' .
+                        $baseSlug.
+                        '-'.
                         $counter;
 
                     $counter++;
@@ -275,7 +277,6 @@ class ProductController extends Controller
             |--------------------------------------------------------------------------
             */
             if ($request->hasFile('image')) {
-
                 $validated['image'] =
                     $this->storeProductImage(
                         $request->file('image')
@@ -312,22 +313,18 @@ class ProductController extends Controller
                     $option =
                         ProductOption::create([
 
-                            'product_id' =>
-                            $product->id,
+                            'product_id' => $product->id,
 
-                            'name' =>
-                            $optionData['name'],
+                            'name' => $optionData['name'],
                         ]);
 
                     foreach (
-                        $optionData['values']
-                        as $value
+                        $optionData['values'] as $value
                     ) {
 
                         ProductOptionValue::create([
 
-                            'product_option_id' =>
-                            $option->id,
+                            'product_option_id' => $option->id,
 
                             'value' => $value,
                         ]);
@@ -356,24 +353,18 @@ class ProductController extends Controller
 
                     ProductVariantItem::create([
 
-                        'product_id' =>
-                        $product->id,
+                        'product_id' => $product->id,
 
-                        'name' =>
-                        $variant['name'],
+                        'name' => $variant['name'],
 
-                        'price' =>
-                        $variant['price'] ?: 0,
+                        'price' => $variant['price'] ?: 0,
 
-                        'discount_price' =>
-                        $variant['discount_price']
+                        'discount_price' => $variant['discount_price']
                             ?: null,
 
-                        'stock' =>
-                        $variant['stock'] ?: 0,
+                        'stock' => $variant['stock'] ?: 0,
 
-                        'sku' =>
-                        $variant['sku'] ?: null,
+                        'sku' => $variant['sku'] ?: null,
 
                         'is_active' => true,
                     ]);
@@ -388,8 +379,7 @@ class ProductController extends Controller
             if ($request->hasFile('images')) {
 
                 foreach (
-                    $request->file('images')
-                    as $imageFile
+                    $request->file('images') as $imageFile
                 ) {
 
                     $path =
@@ -399,8 +389,7 @@ class ProductController extends Controller
 
                     ProductImage::create([
 
-                        'product_id' =>
-                        $product->id,
+                        'product_id' => $product->id,
 
                         'image' => $path,
 
@@ -410,8 +399,7 @@ class ProductController extends Controller
             }
 
             return response()->json([
-                'message' =>
-                'Produk berhasil ditambahkan',
+                'message' => 'Produk berhasil ditambahkan',
 
                 'data' => $product,
             ], 201);
@@ -444,7 +432,7 @@ class ProductController extends Controller
                 ),
             ]);
 
-            if (!$request->hasFile('image')) {
+            if (! $request->hasFile('image')) {
                 $request->request->remove('image');
             }
 
@@ -455,84 +443,84 @@ class ProductController extends Controller
 
                 'category_id' => [
                     'nullable',
-                    'exists:categories,id'
+                    'exists:categories,id',
                 ],
 
                 'name' => [
                     'required',
                     'string',
-                    'max:255'
+                    'max:255',
                 ],
 
                 'slug' => [
                     'nullable',
                     'string',
                     'max:255',
-                    'unique:products,slug,' .
-                        $product->id
+                    'unique:products,slug,'.
+                        $product->id,
                 ],
 
                 'description' => [
                     'nullable',
-                    'string'
+                    'string',
                 ],
 
                 'price' => [
                     'required',
                     'numeric',
-                    'min:0'
+                    'min:0',
                 ],
 
                 'discount_price' => [
                     'nullable',
                     'numeric',
-                    'min:0'
+                    'min:0',
                 ],
 
                 'stock' => [
                     'required',
                     'integer',
-                    'min:0'
+                    'min:0',
                 ],
 
                 'sold_count' => [
                     'nullable',
                     'integer',
-                    'min:0'
+                    'min:0',
                 ],
 
                 'is_active' => [
                     'required',
-                    'boolean'
+                    'boolean',
                 ],
 
                 'image' => [
                     'nullable',
                     'image',
                     'mimes:jpg,jpeg,png,webp',
-                    'max:2048'
+                    'max:2048',
                 ],
 
                 'images' => [
                     'nullable',
                     'array',
-                    'max:4'
+                    'max:4',
                 ],
 
                 'images.*' => [
                     'image',
                     'mimes:jpg,jpeg,png,webp',
-                    'max:2048'
+                    'max:2048',
                 ],
 
                 'options' => [
                     'nullable',
-                    'string'
+                    'string',
                 ],
 
                 'variants' => [
                     'nullable',
-                    'string'
+                    'string',
                 ],
             ]);
 
@@ -561,17 +549,17 @@ class ProductController extends Controller
                         'slug',
                         $slug
                     )
-                    ->where(
-                        'id',
-                        '!=',
-                        $product->id
-                    )
-                    ->exists()
+                        ->where(
+                            'id',
+                            '!=',
+                            $product->id
+                        )
+                        ->exists()
                 ) {
 
                     $slug =
-                        $baseSlug .
-                        '-' .
+                        $baseSlug.
+                        '-'.
                         $counter;
 
                     $counter++;
@@ -586,6 +574,9 @@ class ProductController extends Controller
             |--------------------------------------------------------------------------
             */
             if ($request->hasFile('image')) {
+                if ($product->image) {
+                    Storage::disk('public')->delete($product->image);
+                }
 
                 $validated['image'] =
                     $this->storeProductImage(
@@ -608,7 +599,7 @@ class ProductController extends Controller
             $existingImageIds =
                 $request->existing_images ?? [];
 
-            ProductImage::where(
+            $removedImages = ProductImage::where(
                 'product_id',
                 $product->id
             )
@@ -616,7 +607,11 @@ class ProductController extends Controller
                     'id',
                     $existingImageIds
                 )
-                ->delete();
+                ->get();
+
+            Storage::disk('public')->delete($removedImages->pluck('image')->all());
+
+            ProductImage::whereIn('id', $removedImages->pluck('id')->all())->delete();
 
             /*
             |--------------------------------------------------------------------------
@@ -626,8 +621,7 @@ class ProductController extends Controller
             if ($request->hasFile('images')) {
 
                 foreach (
-                    $request->file('images')
-                    as $imageFile
+                    $request->file('images') as $imageFile
                 ) {
 
                     $path =
@@ -637,8 +631,7 @@ class ProductController extends Controller
 
                     ProductImage::create([
 
-                        'product_id' =>
-                        $product->id,
+                        'product_id' => $product->id,
 
                         'image' => $path,
 
@@ -689,22 +682,18 @@ class ProductController extends Controller
                     $option =
                         ProductOption::create([
 
-                            'product_id' =>
-                            $product->id,
+                            'product_id' => $product->id,
 
-                            'name' =>
-                            $optionData['name'],
+                            'name' => $optionData['name'],
                         ]);
 
                     foreach (
-                        $optionData['values']
-                        as $value
+                        $optionData['values'] as $value
                     ) {
 
                         ProductOptionValue::create([
 
-                            'product_option_id' =>
-                            $option->id,
+                            'product_option_id' => $option->id,
 
                             'value' => $value,
                         ]);
@@ -733,24 +722,18 @@ class ProductController extends Controller
 
                     ProductVariantItem::create([
 
-                        'product_id' =>
-                        $product->id,
+                        'product_id' => $product->id,
 
-                        'name' =>
-                        $variant['name'],
+                        'name' => $variant['name'],
 
-                        'price' =>
-                        $variant['price'] ?: 0,
+                        'price' => $variant['price'] ?: 0,
 
-                        'discount_price' =>
-                        $variant['discount_price']
+                        'discount_price' => $variant['discount_price']
                             ?: null,
 
-                        'stock' =>
-                        $variant['stock'] ?: 0,
+                        'stock' => $variant['stock'] ?: 0,
 
-                        'sku' =>
-                        $variant['sku'] ?: null,
+                        'sku' => $variant['sku'] ?: null,
 
                         'is_active' => true,
                     ]);
@@ -758,8 +741,7 @@ class ProductController extends Controller
             }
 
             return response()->json([
-                'message' =>
-                'Produk berhasil diupdate',
+                'message' => 'Produk berhasil diupdate',
 
                 'data' => $product,
             ]);
@@ -786,8 +768,7 @@ class ProductController extends Controller
         $product->delete();
 
         return response()->json([
-            'message' =>
-            'Produk berhasil dihapus',
+            'message' => 'Produk berhasil dihapus',
         ]);
     }
 
@@ -801,7 +782,7 @@ class ProductController extends Controller
         $query =
             $request->query('q');
 
-        if (!$query) {
+        if (! $query) {
             return response()->json([]);
         }
 
@@ -810,18 +791,17 @@ class ProductController extends Controller
             true
         )
             ->where(
-                function ($q)
-                use ($query) {
+                function ($q) use ($query) {
 
                     $q->where(
                         'name',
                         'like',
-                        '%' . $query . '%'
+                        '%'.$query.'%'
                     )
                         ->orWhere(
                             'description',
                             'like',
-                            '%' . $query . '%'
+                            '%'.$query.'%'
                         );
                 }
             )
@@ -862,7 +842,7 @@ class ProductController extends Controller
                         true
                     )
                     ->latest();
-            }
+            },
 
         ])->findOrFail($id);
 

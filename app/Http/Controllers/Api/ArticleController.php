@@ -4,11 +4,17 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Article;
+use App\Services\ImageUploadService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class ArticleController extends Controller
 {
+    public function __construct(
+        private readonly ImageUploadService $imageUploadService
+    ) {}
+
     public function index()
     {
         return response()->json(
@@ -83,9 +89,10 @@ class ArticleController extends Controller
         );
 
         if ($request->hasFile('thumbnail')) {
-            $validated['thumbnail'] = $request
-                ->file('thumbnail')
-                ->store('articles', 'public');
+            $validated['thumbnail'] = $this->imageUploadService->storeAsWebp(
+                $request->file('thumbnail'),
+                'articles'
+            );
         }
 
         $validated['published_at'] = $validated['is_published'] ? now() : null;
@@ -105,7 +112,7 @@ class ArticleController extends Controller
 
         $validated = $request->validate([
             'title' => ['required', 'string', 'max:255'],
-            'slug' => ['nullable', 'string', 'max:255', 'unique:articles,slug,' . $article->id],
+            'slug' => ['nullable', 'string', 'max:255', 'unique:articles,slug,'.$article->id],
             'excerpt' => ['nullable', 'string'],
             'content' => ['required', 'string'],
             'thumbnail' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
@@ -139,9 +146,14 @@ class ArticleController extends Controller
         );
 
         if ($request->hasFile('thumbnail')) {
-            $validated['thumbnail'] = $request
-                ->file('thumbnail')
-                ->store('articles', 'public');
+            if ($article->thumbnail) {
+                Storage::disk('public')->delete($article->thumbnail);
+            }
+
+            $validated['thumbnail'] = $this->imageUploadService->storeAsWebp(
+                $request->file('thumbnail'),
+                'articles'
+            );
         }
 
         $validated['published_at'] = $validated['is_published']
@@ -190,7 +202,7 @@ class ArticleController extends Controller
         );
 
         // Kalau masih ada unicode HTML escaped dari JSON, decode juga
-        $decoded = json_decode('"' . addcslashes($content, "\"\\") . '"');
+        $decoded = json_decode('"'.addcslashes($content, '"\\').'"');
 
         if (is_string($decoded) && str_contains($decoded, '<')) {
             $content = $decoded;
@@ -207,12 +219,12 @@ class ArticleController extends Controller
 
         while (
             Article::where('slug', $slug)
-            ->when($ignoreId, function ($query) use ($ignoreId) {
-                $query->where('id', '!=', $ignoreId);
-            })
-            ->exists()
+                ->when($ignoreId, function ($query) use ($ignoreId) {
+                    $query->where('id', '!=', $ignoreId);
+                })
+                ->exists()
         ) {
-            $slug = $baseSlug . '-' . $counter;
+            $slug = $baseSlug.'-'.$counter;
             $counter++;
         }
 

@@ -4,10 +4,16 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\HeroSection;
+use App\Services\ImageUploadService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class HeroSectionController extends Controller
 {
+    public function __construct(
+        private readonly ImageUploadService $imageUploadService
+    ) {}
+
     public function index()
     {
         return response()->json(
@@ -34,7 +40,10 @@ class HeroSectionController extends Controller
         ]);
 
         if ($request->hasFile('image')) {
-            $validated['image'] = $request->file('image')->store('hero', 'public');
+            $validated['image'] = $this->imageUploadService->storeAsWebp(
+                $request->file('image'),
+                'hero'
+            );
         }
 
         $validated['is_active'] = filter_var($request->is_active, FILTER_VALIDATE_BOOLEAN);
@@ -57,7 +66,14 @@ class HeroSectionController extends Controller
         ]);
 
         if ($request->hasFile('image')) {
-            $validated['image'] = $request->file('image')->store('hero', 'public');
+            if ($hero->image) {
+                Storage::disk('public')->delete($hero->image);
+            }
+
+            $validated['image'] = $this->imageUploadService->storeAsWebp(
+                $request->file('image'),
+                'hero'
+            );
         }
 
         $validated['is_active'] = filter_var($request->is_active, FILTER_VALIDATE_BOOLEAN);

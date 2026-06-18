@@ -146,13 +146,25 @@ class AdminAuthorizationTest extends TestCase
 
     public function test_public_registration_creates_a_customer_without_admin_role(): void
     {
-        $this->postJson('/api/register', [
+        $response = $this->postJson('/api/register', [
             'name' => 'Customer Baru',
             'phone' => '081200000001',
             'password' => 'password',
             'password_confirmation' => 'password',
             'role' => User::ROLE_ADMIN,
-        ])->assertOk();
+        ])->assertOk()
+            ->assertJsonPath('requires_otp', true);
+
+        $this->assertDatabaseMissing('users', [
+            'phone' => '081200000001',
+        ]);
+
+        $this->postJson('/api/auth/verify-otp', [
+            'otp_token' => $response->json('otp_token'),
+            'otp_code' => '8888',
+        ])
+            ->assertOk()
+            ->assertJsonStructure(['token', 'user']);
 
         $this->assertDatabaseHas('users', [
             'phone' => '081200000001',
