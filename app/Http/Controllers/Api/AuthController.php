@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use RuntimeException;
 
 class AuthController extends Controller
 {
@@ -25,11 +26,15 @@ class AuthController extends Controller
             'password' => ['required', 'string', 'min:6', 'confirmed'],
         ]);
 
-        $otpToken = $this->createOtpChallenge('register', [
-            'name' => $validated['name'],
-            'phone' => $validated['phone'],
-            'password' => Hash::make($validated['password']),
-        ]);
+        try {
+            $otpToken = $this->createOtpChallenge('register', [
+                'name' => $validated['name'],
+                'phone' => $validated['phone'],
+                'password' => Hash::make($validated['password']),
+            ]);
+        } catch (RuntimeException $exception) {
+            return $this->otpProviderError($exception);
+        }
 
         return response()->json([
             'requires_otp' => true,
@@ -104,11 +109,15 @@ class AuthController extends Controller
             ], 403);
         }
 
-        $otpToken = $this->createOtpChallenge('forgot_password', [
-            'user_id' => $user->id,
-            'phone' => $user->phone,
-            'name' => $user->name,
-        ]);
+        try {
+            $otpToken = $this->createOtpChallenge('forgot_password', [
+                'user_id' => $user->id,
+                'phone' => $user->phone,
+                'name' => $user->name,
+            ]);
+        } catch (RuntimeException $exception) {
+            return $this->otpProviderError($exception);
+        }
 
         return response()->json([
             'requires_otp' => true,
@@ -206,11 +215,15 @@ class AuthController extends Controller
             ], 403);
         }
 
-        $otpToken = $this->createOtpChallenge('change_password', [
-            'user_id' => $user->id,
-            'phone' => $user->phone,
-            'name' => $user->name,
-        ]);
+        try {
+            $otpToken = $this->createOtpChallenge('change_password', [
+                'user_id' => $user->id,
+                'phone' => $user->phone,
+                'name' => $user->name,
+            ]);
+        } catch (RuntimeException $exception) {
+            return $this->otpProviderError($exception);
+        }
 
         return response()->json([
             'requires_otp' => true,
@@ -242,11 +255,15 @@ class AuthController extends Controller
             ], 403);
         }
 
-        $otpToken = $this->createOtpChallenge('login', [
-            'user_id' => $user->id,
-            'phone' => $user->phone,
-            'name' => $user->name,
-        ]);
+        try {
+            $otpToken = $this->createOtpChallenge('login', [
+                'user_id' => $user->id,
+                'phone' => $user->phone,
+                'name' => $user->name,
+            ]);
+        } catch (RuntimeException $exception) {
+            return $this->otpProviderError($exception);
+        }
 
         return response()->json([
             'requires_otp' => true,
@@ -389,6 +406,15 @@ class AuthController extends Controller
             'change_password' => 'ganti password',
             default => 'verifikasi akun',
         };
+    }
+
+    private function otpProviderError(RuntimeException $exception)
+    {
+        report($exception);
+
+        return response()->json([
+            'message' => 'OTP belum dapat dikirim: '.$exception->getMessage(),
+        ], 422);
     }
 
     private function tokenResponse(User $user): array

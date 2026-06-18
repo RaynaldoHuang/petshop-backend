@@ -122,9 +122,20 @@ class FazpassOtpService
 
     private function errorMessage(?array $json): string
     {
+        $errors = collect(data_get($json, 'errors', []))
+            ->map(fn ($error) => is_array($error)
+                ? (data_get($error, 'message') ?: data_get($error, 'field') ?: json_encode($error))
+                : (string) $error)
+            ->filter()
+            ->implode(', ');
+
+        if ($errors !== '') {
+            return $errors;
+        }
+
         return data_get($json, 'message')
-            ?: data_get($json, 'errors.0.message')
             ?: data_get($json, 'data.message')
+            ?: data_get($json, 'meta.message')
             ?: 'Fazpass gagal mengirim OTP.';
     }
 }
