@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\CartController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\CheckoutController;
 use App\Http\Controllers\Api\CustomerController;
+use App\Http\Controllers\Api\FazpassCallbackController;
 use App\Http\Controllers\Api\EditorImageController;
 use App\Http\Controllers\Api\FlashSaleController;
 use App\Http\Controllers\Api\HeroSectionController;
@@ -25,6 +26,7 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::post('/auth/verify-otp', [AuthController::class, 'verifyOtp']);
 Route::post('/forgot-password/request-otp', [AuthController::class, 'requestPasswordResetOtp']);
 Route::post('/forgot-password/reset', [AuthController::class, 'resetPasswordWithOtp']);
+Route::post('/fazpass/callback', [FazpassCallbackController::class, 'store']);
 Route::post('/admin/login', [AuthController::class, 'adminLogin']);
 
 Route::get('/products', [ProductController::class, 'index']);

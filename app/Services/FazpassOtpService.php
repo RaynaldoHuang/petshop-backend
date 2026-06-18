@@ -7,7 +7,7 @@ use RuntimeException;
 
 class FazpassOtpService
 {
-    public function send(string $phone, string $purpose): array
+    public function send(string $phone, string $otpCode, string $purpose, array $params = []): array
     {
         if (! $this->enabled()) {
             return [
@@ -19,15 +19,16 @@ class FazpassOtpService
 
         $response = Http::timeout($this->timeout())
             ->acceptJson()
-            ->withToken($this->apiKey())
+            ->withToken($this->merchantKey())
             ->post($this->url($this->sendPath()), [
-                'phone' => $phone,
-                'purpose' => $purpose,
-                'channel' => config('services.fazpass.channel', 'whatsapp'),
+                'phone' => $this->normalizePhone($phone),
+                'otp' => $otpCode,
+                'gateway_key' => $this->gatewayKey(),
+                'params' => $params,
             ]);
 
         if (! $response->successful()) {
-            throw new RuntimeException($response->json('message') ?: 'Fazpass gagal mengirim OTP.');
+            throw new RuntimeException($this->errorMessage($response->json()));
         }
 
         $json = $response->json();
@@ -45,35 +46,9 @@ class FazpassOtpService
         ];
     }
 
-    public function verify(string $phone, string $otpCode, ?string $reference = null): bool
+    public function verifyTestingCode(string $otpCode): bool
     {
-        if (! $this->enabled()) {
-            return $otpCode === $this->testCode();
-        }
-
-        $response = Http::timeout($this->timeout())
-            ->acceptJson()
-            ->withToken($this->apiKey())
-            ->post($this->url($this->verifyPath()), [
-                'phone' => $phone,
-                'otp' => $otpCode,
-                'code' => $otpCode,
-                'reference_id' => $reference,
-                'transaction_id' => $reference,
-                'otp_id' => $reference,
-            ]);
-
-        if (! $response->successful()) {
-            return false;
-        }
-
-        $json = $response->json();
-        $status = strtolower((string) (data_get($json, 'status') ?: data_get($json, 'data.status')));
-
-        return data_get($json, 'success') === true
-            || data_get($json, 'verified') === true
-            || data_get($json, 'data.verified') === true
-            || in_array($status, ['success', 'verified', 'ok'], true);
+        return $otpCode === $this->testCode();
     }
 
     public function enabled(): bool
@@ -86,12 +61,28 @@ class FazpassOtpService
         return (string) config('services.fazpass.test_code', '8888');
     }
 
-    private function apiKey(): string
+    public function codeLength(): int
     {
-        $key = (string) config('services.fazpass.api_key');
+        return max(4, (int) config('services.fazpass.code_length', 6));
+    }
+
+    private function merchantKey(): string
+    {
+        $key = (string) config('services.fazpass.merchant_key');
 
         if ($key === '') {
-            throw new RuntimeException('FAZPASS_API_KEY belum diisi.');
+            throw new RuntimeException('FAZPASS_MERCHANT_KEY belum diisi.');
+        }
+
+        return $key;
+    }
+
+    private function gatewayKey(): string
+    {
+        $key = (string) config('services.fazpass.gateway_key');
+
+        if ($key === '') {
+            throw new RuntimeException('FAZPASS_GATEWAY_KEY belum diisi.');
         }
 
         return $key;
@@ -110,16 +101,30 @@ class FazpassOtpService
 
     private function sendPath(): string
     {
-        return (string) config('services.fazpass.send_path', '/otp/send');
-    }
-
-    private function verifyPath(): string
-    {
-        return (string) config('services.fazpass.verify_path', '/otp/verify');
+        return (string) config('services.fazpass.send_path', '/v1/otp/send');
     }
 
     private function timeout(): int
     {
         return (int) config('services.fazpass.timeout', 15);
+    }
+
+    private function normalizePhone(string $phone): string
+    {
+        $phone = preg_replace('/\D+/', '', $phone) ?: $phone;
+
+        if (str_starts_with($phone, '0')) {
+            return '62'.substr($phone, 1);
+        }
+
+        return $phone;
+    }
+
+    private function errorMessage(?array $json): string
+    {
+        return data_get($json, 'message')
+            ?: data_get($json, 'errors.0.message')
+            ?: data_get($json, 'data.message')
+            ?: 'Fazpass gagal mengirim OTP.';
     }
 }

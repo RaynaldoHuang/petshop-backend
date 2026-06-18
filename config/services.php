@@ -31,13 +31,15 @@ return [
 
     'fazpass' => [
         'enabled' => env('FAZPASS_OTP_ENABLED', false),
-        'api_key' => env('FAZPASS_API_KEY'),
-        'base_url' => env('FAZPASS_BASE_URL'),
-        'send_path' => env('FAZPASS_SEND_PATH', '/otp/send'),
-        'verify_path' => env('FAZPASS_VERIFY_PATH', '/otp/verify'),
-        'channel' => env('FAZPASS_CHANNEL', 'whatsapp'),
+        'merchant_key' => env('FAZPASS_MERCHANT_KEY', env('FAZPASS_API_KEY')),
+        'gateway_key' => env('FAZPASS_GATEWAY_KEY'),
+        'base_url' => env('FAZPASS_BASE_URL', 'https://api.fazpass.com'),
+        'send_path' => env('FAZPASS_SEND_PATH', '/v1/otp/send'),
+        'name_tag' => env('FAZPASS_NAME_TAG', 'name'),
         'test_code' => env('FAZPASS_TEST_CODE', '8888'),
+        'code_length' => env('FAZPASS_CODE_LENGTH', 6),
         'timeout' => env('FAZPASS_TIMEOUT', 15),
+        'callback_secret' => env('FAZPASS_CALLBACK_SECRET'),
     ],
 
     'ses' => [

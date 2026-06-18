@@ -107,6 +107,7 @@ class AuthController extends Controller
         $otpToken = $this->createOtpChallenge('forgot_password', [
             'user_id' => $user->id,
             'phone' => $user->phone,
+            'name' => $user->name,
         ]);
 
         return response()->json([
@@ -177,7 +178,7 @@ class AuthController extends Controller
             throw ValidationException::withMessages([
                 'otp_token' => ['Silakan minta kode OTP terlebih dahulu.'],
             ]);
-        } elseif (! $this->otpService->verify($user->phone, $validated['otp_code'])) {
+        } elseif (! $this->otpService->verifyTestingCode($validated['otp_code'])) {
             throw ValidationException::withMessages([
                 'otp_code' => ['Kode OTP tidak valid.'],
             ]);
@@ -208,6 +209,7 @@ class AuthController extends Controller
         $otpToken = $this->createOtpChallenge('change_password', [
             'user_id' => $user->id,
             'phone' => $user->phone,
+            'name' => $user->name,
         ]);
 
         return response()->json([
@@ -243,6 +245,7 @@ class AuthController extends Controller
         $otpToken = $this->createOtpChallenge('login', [
             'user_id' => $user->id,
             'phone' => $user->phone,
+            'name' => $user->name,
         ]);
 
         return response()->json([
@@ -298,13 +301,20 @@ class AuthController extends Controller
     private function createOtpChallenge(string $type, array $payload): string
     {
         $token = (string) Str::uuid();
-        $delivery = $this->otpService->send($payload['phone'], $type);
+        $otpCode = $this->makeOtpCode();
+        $delivery = $this->otpService->send(
+            $payload['phone'],
+            $otpCode,
+            $type,
+            $this->otpParams($payload, $type)
+        );
 
         Cache::put($this->otpCacheKey($token), [
             'type' => $type,
             'payload' => $payload,
             'provider' => $delivery['provider'],
             'reference' => $delivery['reference'],
+            'otp_hash' => Hash::make($otpCode),
         ], now()->addMinutes(10));
 
         return $token;
@@ -327,7 +337,7 @@ class AuthController extends Controller
             ]);
         }
 
-        if (! $this->otpService->verify($challenge['payload']['phone'], $otpCode, $challenge['reference'] ?? null)) {
+        if (! Hash::check($otpCode, $challenge['otp_hash'] ?? '')) {
             throw ValidationException::withMessages([
                 'otp_code' => ['Kode OTP tidak valid.'],
             ]);
@@ -341,6 +351,44 @@ class AuthController extends Controller
     private function otpCacheKey(string $token): string
     {
         return "auth_otp:{$token}";
+    }
+
+    private function makeOtpCode(): string
+    {
+        if (! $this->otpService->enabled()) {
+            return $this->otpService->testCode();
+        }
+
+        $length = $this->otpService->codeLength();
+        $min = 10 ** ($length - 1);
+        $max = (10 ** $length) - 1;
+
+        return (string) random_int($min, $max);
+    }
+
+    private function otpParams(array $payload, string $type): array
+    {
+        return [
+            [
+                'tag' => (string) config('services.fazpass.name_tag', 'name'),
+                'value' => (string) ($payload['name'] ?? 'Customer'),
+            ],
+            [
+                'tag' => 'purpose',
+                'value' => $this->otpPurposeLabel($type),
+            ],
+        ];
+    }
+
+    private function otpPurposeLabel(string $type): string
+    {
+        return match ($type) {
+            'register' => 'daftar akun',
+            'login' => 'login',
+            'forgot_password' => 'reset password',
+            'change_password' => 'ganti password',
+            default => 'verifikasi akun',
+        };
     }
 
     private function tokenResponse(User $user): array
