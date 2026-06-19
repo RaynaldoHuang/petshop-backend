@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\TrustedDevice;
 use App\Models\User;
 use App\Services\FazpassOtpService;
 use Illuminate\Http\Request;
@@ -79,7 +80,10 @@ class AuthController extends Controller
                 $user->forceFill(['phone_verified_at' => now()])->save();
             }
 
-            return response()->json($this->tokenResponse($user));
+            return response()->json($this->tokenResponse(
+                $user,
+                $this->issueTrustedDeviceToken($user, $request)
+            ));
         }
 
         throw ValidationException::withMessages([
@@ -146,6 +150,7 @@ class AuthController extends Controller
         ])->save();
 
         $user->tokens()->delete();
+        $user->trustedDevices()->delete();
 
         return response()->json([
             'message' => 'Password berhasil diubah. Silakan login kembali.',
@@ -199,6 +204,7 @@ class AuthController extends Controller
         ])->save();
 
         $user->tokens()->where('id', '!=', $request->user()->currentAccessToken()->id)->delete();
+        $user->trustedDevices()->delete();
 
         return response()->json([
             'message' => 'Password berhasil diperbarui.',
@@ -237,6 +243,7 @@ class AuthController extends Controller
         $validated = $request->validate([
             'phone' => ['required'],
             'password' => ['required'],
+            'trusted_device_token' => ['nullable', 'string'],
         ]);
 
         $user = User::where('phone', $validated['phone'])
@@ -253,6 +260,14 @@ class AuthController extends Controller
             return response()->json([
                 'message' => 'Akun Anda sedang dinonaktifkan.',
             ], 403);
+        }
+
+        if ($this->trustedDeviceIsValid($user, $validated['trusted_device_token'] ?? null)) {
+            return response()->json($this->tokenResponse($user));
+        }
+
+        if ($this->midtransReviewerCanBypassOtp($user)) {
+            return response()->json($this->tokenResponse($user));
         }
 
         try {
@@ -417,13 +432,79 @@ class AuthController extends Controller
         ], 422);
     }
 
-    private function tokenResponse(User $user): array
+    private function tokenResponse(User $user, ?string $trustedDeviceToken = null): array
     {
         $token = $user->createToken('auth_token')->plainTextToken;
 
-        return [
+        $response = [
             'user' => $user,
             'token' => $token,
         ];
+
+        if ($trustedDeviceToken) {
+            $response['trusted_device_token'] = $trustedDeviceToken;
+        }
+
+        return $response;
+    }
+
+    private function issueTrustedDeviceToken(User $user, Request $request): string
+    {
+        $token = Str::random(64);
+
+        $user->trustedDevices()->create([
+            'token_hash' => $this->trustedDeviceTokenHash($token),
+            'user_agent' => Str::limit((string) $request->userAgent(), 255, ''),
+            'ip_address' => $request->ip(),
+            'last_used_at' => now(),
+            'expires_at' => now()->addYear(),
+        ]);
+
+        return $token;
+    }
+
+    private function trustedDeviceIsValid(User $user, ?string $token): bool
+    {
+        if (! $token) {
+            return false;
+        }
+
+        $trustedDevice = TrustedDevice::query()
+            ->where('user_id', $user->id)
+            ->where('token_hash', $this->trustedDeviceTokenHash($token))
+            ->where(function ($query) {
+                $query->whereNull('expires_at')
+                    ->orWhere('expires_at', '>', now());
+            })
+            ->first();
+
+        if (! $trustedDevice) {
+            return false;
+        }
+
+        $trustedDevice->forceFill(['last_used_at' => now()])->save();
+
+        return true;
+    }
+
+    private function trustedDeviceTokenHash(string $token): string
+    {
+        return hash('sha256', $token);
+    }
+
+    private function midtransReviewerCanBypassOtp(User $user): bool
+    {
+        if (! (bool) config('services.midtrans_reviewer.bypass_otp')) {
+            return false;
+        }
+
+        $phone = preg_replace('/\D+/', '', $user->phone) ?: $user->phone;
+        $reviewerPhone = preg_replace(
+            '/\D+/',
+            '',
+            (string) config('services.midtrans_reviewer.phone')
+        ) ?: (string) config('services.midtrans_reviewer.phone');
+
+        return $reviewerPhone !== '' && $phone === $reviewerPhone;
     }
 }

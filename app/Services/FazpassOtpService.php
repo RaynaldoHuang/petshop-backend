@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
 
 class FazpassOtpService
@@ -17,17 +18,32 @@ class FazpassOtpService
             ];
         }
 
+        $normalizedPhone = $this->normalizePhone($phone);
+        $gatewayKey = $this->gatewayKey();
+        $merchantKey = $this->merchantKey();
+        $url = $this->url($this->sendPath());
+
         $response = Http::timeout($this->timeout())
             ->acceptJson()
-            ->withToken($this->merchantKey())
-            ->post($this->url($this->sendPath()), [
-                'phone' => $this->normalizePhone($phone),
+            ->withToken($merchantKey)
+            ->post($url, [
+                'phone' => $normalizedPhone,
                 'otp' => $otpCode,
-                'gateway_key' => $this->gatewayKey(),
+                'gateway_key' => $gatewayKey,
                 'params' => $params,
             ]);
 
         if (! $response->successful()) {
+            Log::warning('Fazpass OTP send failed', [
+                'status' => $response->status(),
+                'url' => $url,
+                'phone' => $normalizedPhone,
+                'message' => $this->errorMessage($response->json()),
+                'merchant_key_tail' => $this->tail($merchantKey),
+                'gateway_key_tail' => $this->tail($gatewayKey),
+                'response' => $response->json(),
+            ]);
+
             throw new RuntimeException($this->errorMessage($response->json()));
         }
 
@@ -118,6 +134,11 @@ class FazpassOtpService
         }
 
         return $phone;
+    }
+
+    private function tail(string $value): string
+    {
+        return substr($value, -4);
     }
 
     private function errorMessage(?array $json): string

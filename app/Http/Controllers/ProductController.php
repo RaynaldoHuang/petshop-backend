@@ -177,6 +177,12 @@ class ProductController extends Controller
                     'min:0',
                 ],
 
+                'weight_grams' => [
+                    'required',
+                    'integer',
+                    'min:1',
+                ],
+
                 'sold_count' => [
                     'nullable',
                     'integer',
@@ -481,6 +487,12 @@ class ProductController extends Controller
                     'required',
                     'integer',
                     'min:0',
+                ],
+
+                'weight_grams' => [
+                    'required',
+                    'integer',
+                    'min:1',
                 ],
 
                 'sold_count' => [

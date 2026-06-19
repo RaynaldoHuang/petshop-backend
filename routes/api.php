@@ -88,6 +88,7 @@ Route::prefix('admin')
             Route::delete('/users/{user}', [AdminUserController::class, 'destroy']);
         });
         Route::get('/customers', [CustomerController::class, 'index']);
+        Route::delete('/customers/{customer}', [CustomerController::class, 'destroy']);
 
         Route::get('/orders', [OrderController::class, 'index']);
         Route::put('/orders/{id}/status', [OrderController::class, 'updateStatus']);

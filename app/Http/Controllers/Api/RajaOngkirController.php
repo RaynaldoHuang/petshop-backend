@@ -135,9 +135,10 @@ class RajaOngkirController extends Controller
         return collect($items)
             ->groupBy('id')
             ->map(function ($rows, $productId) use ($defaultWeight) {
-                Product::findOrFail($productId);
+                $product = Product::findOrFail($productId);
+                $productWeight = max(1, (int) ($product->weight_grams ?: $defaultWeight));
 
-                return $rows->sum('quantity') * $defaultWeight;
+                return $rows->sum('quantity') * $productWeight;
             })
             ->sum();
     }

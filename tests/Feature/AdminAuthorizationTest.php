@@ -144,6 +144,29 @@ class AdminAuthorizationTest extends TestCase
         $this->assertDatabaseHas('users', ['id' => $superAdmin->id]);
     }
 
+    public function test_admin_can_delete_customer_account_but_not_admin_from_customer_menu(): void
+    {
+        $admin = User::factory()->create([
+            'role' => User::ROLE_ADMIN,
+        ]);
+        $customer = User::factory()->create([
+            'role' => null,
+            'phone' => '081299999999',
+        ]);
+
+        Sanctum::actingAs($admin);
+
+        $this->deleteJson("/api/admin/customers/{$customer->id}")
+            ->assertOk();
+
+        $this->assertDatabaseMissing('users', ['id' => $customer->id]);
+
+        $this->deleteJson("/api/admin/customers/{$admin->id}")
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('users', ['id' => $admin->id]);
+    }
+
     public function test_public_registration_creates_a_customer_without_admin_role(): void
     {
         $response = $this->postJson('/api/register', [

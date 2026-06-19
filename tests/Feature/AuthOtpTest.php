@@ -33,7 +33,62 @@ class AuthOtpTest extends TestCase
             'otp_code' => '8888',
         ])
             ->assertOk()
-            ->assertJsonStructure(['token', 'user']);
+            ->assertJsonStructure(['token', 'user', 'trusted_device_token']);
+    }
+
+    public function test_trusted_device_can_login_without_otp_after_successful_otp_login(): void
+    {
+        User::factory()->create([
+            'phone' => '081200000005',
+            'password' => 'password123',
+            'role' => null,
+        ]);
+
+        $otpResponse = $this->postJson('/api/login', [
+            'phone' => '081200000005',
+            'password' => 'password123',
+        ])->assertOk();
+
+        $verifiedResponse = $this->postJson('/api/auth/verify-otp', [
+            'otp_token' => $otpResponse->json('otp_token'),
+            'otp_code' => '8888',
+        ])
+            ->assertOk()
+            ->assertJsonStructure(['trusted_device_token']);
+
+        $this->postJson('/api/login', [
+            'phone' => '081200000005',
+            'password' => 'password123',
+            'trusted_device_token' => $verifiedResponse->json('trusted_device_token'),
+        ])
+            ->assertOk()
+            ->assertJsonStructure(['token', 'user'])
+            ->assertJsonMissingPath('otp_token')
+            ->assertJsonMissingPath('requires_otp');
+    }
+
+    public function test_midtrans_reviewer_account_can_bypass_otp_when_enabled(): void
+    {
+        config([
+            'services.midtrans_reviewer.bypass_otp' => true,
+            'services.midtrans_reviewer.phone' => '081200000006',
+        ]);
+
+        User::factory()->create([
+            'name' => 'Midtrans Reviewer',
+            'phone' => '081200000006',
+            'password' => 'review12345',
+            'role' => null,
+        ]);
+
+        $this->postJson('/api/login', [
+            'phone' => '081200000006',
+            'password' => 'review12345',
+        ])
+            ->assertOk()
+            ->assertJsonStructure(['token', 'user'])
+            ->assertJsonMissingPath('otp_token')
+            ->assertJsonMissingPath('requires_otp');
     }
 
     public function test_wrong_otp_is_rejected(): void

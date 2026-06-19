@@ -19,10 +19,19 @@ class Product extends Model
         'price',
         'discount_price',
         'stock',
+        'weight_grams',
         'sold_count',
         'image',
         'is_active',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'weight_grams' => 'integer',
+            'is_active' => 'boolean',
+        ];
+    }
 
     /*
     =========================================

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\User;
+use Illuminate\Http\JsonResponse;
 
 class CustomerController extends Controller
 {
@@ -46,5 +47,22 @@ class CustomerController extends Controller
             });
 
         return response()->json($customers);
+    }
+
+    public function destroy(User $customer): JsonResponse
+    {
+        if ($customer->isAdmin()) {
+            return response()->json([
+                'message' => 'Akun admin tidak dapat dihapus dari menu pelanggan.',
+            ], 403);
+        }
+
+        $customer->tokens()->delete();
+        $customer->trustedDevices()->delete();
+        $customer->delete();
+
+        return response()->json([
+            'message' => 'Pelanggan berhasil dihapus.',
+        ]);
     }
 }

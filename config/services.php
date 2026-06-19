@@ -29,6 +29,11 @@ return [
         'default_item_weight' => env('RAJAONGKIR_DEFAULT_ITEM_WEIGHT', 1000),
     ],
 
+    'midtrans_reviewer' => [
+        'bypass_otp' => env('MIDTRANS_REVIEWER_BYPASS_OTP', false),
+        'phone' => env('MIDTRANS_REVIEWER_PHONE'),
+    ],
+
     'fazpass' => [
         'enabled' => env('FAZPASS_OTP_ENABLED', false),
         'merchant_key' => env('FAZPASS_MERCHANT_KEY', env('FAZPASS_API_KEY')),
