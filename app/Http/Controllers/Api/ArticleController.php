@@ -11,6 +11,8 @@ use Illuminate\Support\Str;
 
 class ArticleController extends Controller
 {
+    private const MAX_ARTICLE_IMAGE_KB = 5120;
+
     public function __construct(
         private readonly ImageUploadService $imageUploadService
     ) {}
@@ -58,13 +60,13 @@ class ArticleController extends Controller
             'slug' => ['nullable', 'string', 'max:255', 'unique:articles,slug'],
             'excerpt' => ['nullable', 'string'],
             'content' => ['required', 'string'],
-            'thumbnail' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+            'thumbnail' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:'.self::MAX_ARTICLE_IMAGE_KB],
             'is_published' => ['required', 'boolean'],
             'meta_title' => ['nullable', 'string', 'max:255'],
             'meta_description' => ['nullable', 'string'],
             'category' => ['nullable', 'string', 'max:100'],
             'tags' => ['nullable', 'string', 'max:255'],
-        ]);
+        ], $this->imageValidationMessages());
 
         $validated['content'] = $this->normalizeContentHtml($validated['content']);
 
@@ -115,13 +117,13 @@ class ArticleController extends Controller
             'slug' => ['nullable', 'string', 'max:255', 'unique:articles,slug,'.$article->id],
             'excerpt' => ['nullable', 'string'],
             'content' => ['required', 'string'],
-            'thumbnail' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+            'thumbnail' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:'.self::MAX_ARTICLE_IMAGE_KB],
             'is_published' => ['required', 'boolean'],
             'meta_title' => ['nullable', 'string', 'max:255'],
             'meta_description' => ['nullable', 'string'],
             'category' => ['nullable', 'string', 'max:100'],
             'tags' => ['nullable', 'string', 'max:255'],
-        ]);
+        ], $this->imageValidationMessages());
 
         $validated['content'] = $this->normalizeContentHtml($validated['content']);
 
@@ -209,6 +211,15 @@ class ArticleController extends Controller
         }
 
         return $content;
+    }
+
+    private function imageValidationMessages(): array
+    {
+        return [
+            'thumbnail.image' => 'Thumbnail harus berupa file gambar.',
+            'thumbnail.mimes' => 'Thumbnail harus berformat JPG, JPEG, PNG, atau WEBP.',
+            'thumbnail.max' => 'Ukuran thumbnail maksimal 5 MB.',
+        ];
     }
 
     private function generateUniqueSlug(string $title, ?int $ignoreId = null): string
