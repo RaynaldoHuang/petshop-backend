@@ -87,6 +87,12 @@ Route::prefix('admin')
         Route::delete('/hero-sections/{id}', [HeroSectionController::class, 'destroy']);
         Route::post('/editor/upload-image', [EditorImageController::class, 'store']);
 
+        Route::get('/products', [ProductController::class, 'adminIndex']);
+        Route::get('/products/{id}', [ProductController::class, 'showById']);
+        Route::post('/products', [ProductController::class, 'store']);
+        Route::post('/products/{id}', [ProductController::class, 'update']);
+        Route::delete('/products/{id}', [ProductController::class, 'destroy']);
+
         Route::middleware('role:super_admin')->group(function () {
             Route::get('/dashboard', [AdminDashboardController::class, 'index']);
 
@@ -98,12 +104,6 @@ Route::prefix('admin')
 
             Route::get('/customers', [CustomerController::class, 'index']);
             Route::delete('/customers/{customer}', [CustomerController::class, 'destroy']);
-
-            Route::get('/products', [ProductController::class, 'adminIndex']);
-            Route::get('/products/{id}', [ProductController::class, 'showById']);
-            Route::post('/products', [ProductController::class, 'store']);
-            Route::post('/products/{id}', [ProductController::class, 'update']);
-            Route::delete('/products/{id}', [ProductController::class, 'destroy']);
 
             Route::get('/announcements', [AnnouncementController::class, 'index']);
             Route::post('/announcements', [AnnouncementController::class, 'store']);

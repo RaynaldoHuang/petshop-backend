@@ -65,6 +65,52 @@ class AdminAuthorizationTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_admin_can_manage_products_including_delete(): void
+    {
+        $admin = User::factory()->create([
+            'role' => User::ROLE_ADMIN,
+        ]);
+
+        Sanctum::actingAs($admin);
+
+        $createResponse = $this->postJson('/api/admin/products', [
+            'name' => 'Makanan Kucing Premium',
+            'slug' => 'makanan-kucing-premium',
+            'description' => 'Produk untuk test role admin.',
+            'price' => 125000,
+            'discount_price' => null,
+            'stock' => 12,
+            'weight_grams' => 1000,
+            'sold_count' => 0,
+            'is_active' => true,
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.name', 'Makanan Kucing Premium');
+
+        $productId = $createResponse->json('data.id');
+
+        $this->postJson("/api/admin/products/{$productId}", [
+            'name' => 'Makanan Kucing Premium Updated',
+            'slug' => 'makanan-kucing-premium-updated',
+            'description' => 'Produk sudah diupdate oleh admin.',
+            'price' => 135000,
+            'discount_price' => null,
+            'stock' => 9,
+            'weight_grams' => 1200,
+            'sold_count' => 1,
+            'is_active' => true,
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.name', 'Makanan Kucing Premium Updated');
+
+        $this->deleteJson("/api/admin/products/{$productId}")
+            ->assertOk();
+
+        $this->assertDatabaseMissing('products', [
+            'id' => $productId,
+        ]);
+    }
+
     public function test_super_admin_can_access_dashboard_and_manage_payment_methods(): void
     {
         $superAdmin = User::factory()->create([
