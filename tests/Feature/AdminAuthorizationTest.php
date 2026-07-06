@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Order;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -24,13 +25,53 @@ class AdminAuthorizationTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_admin_can_access_dashboard_and_manage_payment_methods(): void
+    public function test_admin_can_receive_orders_and_edit_images_without_payment_access(): void
     {
         $admin = User::factory()->create([
             'role' => User::ROLE_ADMIN,
         ]);
+        Order::create([
+            'customer_name' => 'Customer Baru',
+            'customer_phone' => '081200000002',
+            'shipping_address' => 'Jl. Mawar No. 1',
+            'total_price' => 150000,
+            'payment_status' => 'paid',
+            'order_status' => 'new',
+        ]);
 
         Sanctum::actingAs($admin);
+
+        $this->getJson('/api/admin/dashboard')
+            ->assertForbidden();
+
+        $this->getJson('/api/admin/orders')
+            ->assertOk()
+            ->assertJsonMissingPath('0.payment_status');
+
+        $this->getJson('/api/admin/hero-sections')
+            ->assertOk();
+
+        $this->postJson('/api/admin/payment-methods', [
+            'name' => 'BNI Virtual Account',
+            'code' => 'bni',
+            'fee' => 4000,
+            'fee_percentage' => 0.7,
+            'is_active' => true,
+            'sort_order' => 2,
+        ])
+            ->assertForbidden();
+
+        $this->getJson('/api/admin/customers')
+            ->assertForbidden();
+    }
+
+    public function test_super_admin_can_access_dashboard_and_manage_payment_methods(): void
+    {
+        $superAdmin = User::factory()->create([
+            'role' => User::ROLE_SUPER_ADMIN,
+        ]);
+
+        Sanctum::actingAs($superAdmin);
 
         $this->getJson('/api/admin/dashboard')
             ->assertOk()
@@ -144,7 +185,7 @@ class AdminAuthorizationTest extends TestCase
         $this->assertDatabaseHas('users', ['id' => $superAdmin->id]);
     }
 
-    public function test_admin_can_delete_customer_account_but_not_admin_from_customer_menu(): void
+    public function test_only_super_admin_can_delete_customer_account(): void
     {
         $admin = User::factory()->create([
             'role' => User::ROLE_ADMIN,
@@ -155,6 +196,17 @@ class AdminAuthorizationTest extends TestCase
         ]);
 
         Sanctum::actingAs($admin);
+
+        $this->deleteJson("/api/admin/customers/{$customer->id}")
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('users', ['id' => $customer->id]);
+
+        $superAdmin = User::factory()->create([
+            'role' => User::ROLE_SUPER_ADMIN,
+        ]);
+
+        Sanctum::actingAs($superAdmin);
 
         $this->deleteJson("/api/admin/customers/{$customer->id}")
             ->assertOk();

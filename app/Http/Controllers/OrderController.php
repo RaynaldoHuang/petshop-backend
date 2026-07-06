@@ -4,16 +4,21 @@ namespace App\Http\Controllers;
 
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class OrderController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         $orders = Order::with('items')
             ->latest()
             ->get();
+
+        if ($request->user()?->role === User::ROLE_ADMIN) {
+            $orders->each->makeHidden(['payment_status']);
+        }
 
         return response()->json($orders);
     }
@@ -150,6 +155,10 @@ class OrderController extends Controller
         $order->update([
             'order_status' => $validated['order_status'],
         ]);
+
+        if ($request->user()?->role === User::ROLE_ADMIN) {
+            $order->makeHidden(['payment_status']);
+        }
 
         return response()->json([
             'message' => 'Status order berhasil diperbarui',

@@ -78,64 +78,65 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::prefix('admin')
     ->middleware(['auth:sanctum', 'role:super_admin,admin'])
     ->group(function () {
-        Route::get('/dashboard', [AdminDashboardController::class, 'index']);
-
-        Route::middleware('role:super_admin')->group(function () {
-            Route::get('/users', [AdminUserController::class, 'index']);
-            Route::post('/users', [AdminUserController::class, 'store']);
-            Route::put('/users/{user}', [AdminUserController::class, 'update']);
-            Route::put('/users/{user}/password', [AdminUserController::class, 'updatePassword']);
-            Route::delete('/users/{user}', [AdminUserController::class, 'destroy']);
-        });
-        Route::get('/customers', [CustomerController::class, 'index']);
-        Route::delete('/customers/{customer}', [CustomerController::class, 'destroy']);
-
         Route::get('/orders', [OrderController::class, 'index']);
         Route::put('/orders/{id}/status', [OrderController::class, 'updateStatus']);
-
-        Route::get('/products', [ProductController::class, 'adminIndex']);
-        Route::get('/products/{id}', [ProductController::class, 'showById']);
-        Route::post('/products', [ProductController::class, 'store']);
-        Route::post('/products/{id}', [ProductController::class, 'update']);
-        Route::delete('/products/{id}', [ProductController::class, 'destroy']);
-
-        Route::get('/announcements', [AnnouncementController::class, 'index']);
-        Route::post('/announcements', [AnnouncementController::class, 'store']);
-        Route::put('/announcements/{id}', [AnnouncementController::class, 'update']);
-        Route::delete('/announcements/{id}', [AnnouncementController::class, 'destroy']);
 
         Route::get('/hero-sections', [HeroSectionController::class, 'index']);
         Route::post('/hero-sections', [HeroSectionController::class, 'store']);
         Route::post('/hero-sections/{id}', [HeroSectionController::class, 'update']);
         Route::delete('/hero-sections/{id}', [HeroSectionController::class, 'destroy']);
-
-        Route::get('/categories', [CategoryController::class, 'adminIndex']);
-        Route::post('/categories', [CategoryController::class, 'store']);
-        Route::get('/categories/{id}', [CategoryController::class, 'show']);
-        Route::post('/categories/{id}', [CategoryController::class, 'update']);
-        Route::delete('/categories/{id}', [CategoryController::class, 'destroy']);
-
-        Route::get('/flash-sales', [FlashSaleController::class, 'index']);
-        Route::post('/flash-sales', [FlashSaleController::class, 'store']);
-        Route::post('/flash-sales/{id}', [FlashSaleController::class, 'update']);
-        Route::delete('/flash-sales/{id}', [FlashSaleController::class, 'destroy']);
-
-        Route::get('/articles', [ArticleController::class, 'adminIndex']);
-        Route::get('/articles/{id}', [ArticleController::class, 'adminShow']);
-        Route::post('/articles', [ArticleController::class, 'store']);
-        Route::post('/articles/{id}', [ArticleController::class, 'update']);
-        Route::delete('/articles/{id}', [ArticleController::class, 'destroy']);
         Route::post('/editor/upload-image', [EditorImageController::class, 'store']);
 
-        Route::get('/payment-methods', [PaymentMethodController::class, 'adminIndex']);
-        Route::post('/payment-methods', [PaymentMethodController::class, 'store']);
-        Route::put('/payment-methods/{paymentMethod}', [PaymentMethodController::class, 'update']);
-        Route::delete('/payment-methods/{paymentMethod}', [PaymentMethodController::class, 'destroy']);
+        Route::middleware('role:super_admin')->group(function () {
+            Route::get('/dashboard', [AdminDashboardController::class, 'index']);
 
-        Route::get('/rajaongkir', [RajaOngkirAdminController::class, 'show']);
-        Route::put('/rajaongkir/setting', [RajaOngkirAdminController::class, 'updateSetting']);
-        Route::get('/rajaongkir/destinations', [RajaOngkirAdminController::class, 'destinations']);
-        Route::post('/rajaongkir/couriers', [RajaOngkirAdminController::class, 'storeCourier']);
-        Route::put('/rajaongkir/couriers/{courier}', [RajaOngkirAdminController::class, 'updateCourier']);
-        Route::delete('/rajaongkir/couriers/{courier}', [RajaOngkirAdminController::class, 'destroyCourier']);
+            Route::get('/users', [AdminUserController::class, 'index']);
+            Route::post('/users', [AdminUserController::class, 'store']);
+            Route::put('/users/{user}', [AdminUserController::class, 'update']);
+            Route::put('/users/{user}/password', [AdminUserController::class, 'updatePassword']);
+            Route::delete('/users/{user}', [AdminUserController::class, 'destroy']);
+
+            Route::get('/customers', [CustomerController::class, 'index']);
+            Route::delete('/customers/{customer}', [CustomerController::class, 'destroy']);
+
+            Route::get('/products', [ProductController::class, 'adminIndex']);
+            Route::get('/products/{id}', [ProductController::class, 'showById']);
+            Route::post('/products', [ProductController::class, 'store']);
+            Route::post('/products/{id}', [ProductController::class, 'update']);
+            Route::delete('/products/{id}', [ProductController::class, 'destroy']);
+
+            Route::get('/announcements', [AnnouncementController::class, 'index']);
+            Route::post('/announcements', [AnnouncementController::class, 'store']);
+            Route::put('/announcements/{id}', [AnnouncementController::class, 'update']);
+            Route::delete('/announcements/{id}', [AnnouncementController::class, 'destroy']);
+
+            Route::get('/categories', [CategoryController::class, 'adminIndex']);
+            Route::post('/categories', [CategoryController::class, 'store']);
+            Route::get('/categories/{id}', [CategoryController::class, 'show']);
+            Route::post('/categories/{id}', [CategoryController::class, 'update']);
+            Route::delete('/categories/{id}', [CategoryController::class, 'destroy']);
+
+            Route::get('/flash-sales', [FlashSaleController::class, 'index']);
+            Route::post('/flash-sales', [FlashSaleController::class, 'store']);
+            Route::post('/flash-sales/{id}', [FlashSaleController::class, 'update']);
+            Route::delete('/flash-sales/{id}', [FlashSaleController::class, 'destroy']);
+
+            Route::get('/articles', [ArticleController::class, 'adminIndex']);
+            Route::get('/articles/{id}', [ArticleController::class, 'adminShow']);
+            Route::post('/articles', [ArticleController::class, 'store']);
+            Route::post('/articles/{id}', [ArticleController::class, 'update']);
+            Route::delete('/articles/{id}', [ArticleController::class, 'destroy']);
+
+            Route::get('/payment-methods', [PaymentMethodController::class, 'adminIndex']);
+            Route::post('/payment-methods', [PaymentMethodController::class, 'store']);
+            Route::put('/payment-methods/{paymentMethod}', [PaymentMethodController::class, 'update']);
+            Route::delete('/payment-methods/{paymentMethod}', [PaymentMethodController::class, 'destroy']);
+
+            Route::get('/rajaongkir', [RajaOngkirAdminController::class, 'show']);
+            Route::put('/rajaongkir/setting', [RajaOngkirAdminController::class, 'updateSetting']);
+            Route::get('/rajaongkir/destinations', [RajaOngkirAdminController::class, 'destinations']);
+            Route::post('/rajaongkir/couriers', [RajaOngkirAdminController::class, 'storeCourier']);
+            Route::put('/rajaongkir/couriers/{courier}', [RajaOngkirAdminController::class, 'updateCourier']);
+            Route::delete('/rajaongkir/couriers/{courier}', [RajaOngkirAdminController::class, 'destroyCourier']);
+        });
     });
