@@ -12,12 +12,15 @@ class OrderController extends Controller
 {
     public function index(Request $request)
     {
-        $orders = Order::with('items')
+        $orders = Order::with(['items', 'latestPayment'])
             ->latest()
             ->get();
 
         if ($request->user()?->role === User::ROLE_ADMIN) {
-            $orders->each->makeHidden(['payment_status']);
+            $orders->each(function (Order $order) {
+                $order->makeHidden(['payment_status']);
+                $order->unsetRelation('latestPayment');
+            });
         }
 
         return response()->json($orders);

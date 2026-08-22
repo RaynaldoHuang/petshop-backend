@@ -13,12 +13,16 @@ class Payment extends Model
         'midtrans_order_id',
         'payment_method',
         'type',
+        'payment_mode',
         'gross_amount',
         'admin_fee_amount',
         'admin_fee_tax',
         'qr_url',
         'va_number',
         'bank',
+        'proof_path',
+        'proof_original_name',
+        'proof_submitted_at',
         'status',
         'paid_at',
         'expires_at',
@@ -27,6 +31,7 @@ class Payment extends Model
     protected $casts = [
         'paid_at' => 'datetime',
         'expires_at' => 'datetime',
+        'proof_submitted_at' => 'datetime',
     ];
 
     /*

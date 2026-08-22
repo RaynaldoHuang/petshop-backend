@@ -6,11 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Models\PaymentMethod;
+use App\Models\PaymentSetting;
 use App\Models\Product;
 use App\Services\MidtransService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Throwable;
@@ -48,6 +50,32 @@ class PaymentController extends Controller
             ->firstOrFail();
         $fee = $method->feeBreakdown((int) $order->total_price);
         $grossAmount = (int) $order->total_price + $fee['total_fee'];
+        $setting = PaymentSetting::current();
+
+        if ($setting->isManual()) {
+            abort_unless($method->code === 'qris', 422, 'Mode manual hanya mendukung pembayaran QRIS.');
+            abort_unless($setting->manual_qris_path, 422, 'QRIS manual belum dikonfigurasi oleh admin.');
+
+            $payment = Payment::create([
+                'order_id' => $order->id,
+                'transaction_id' => 'MANUAL-'.Str::uuid(),
+                'midtrans_order_id' => 'MANUAL-ORDER-'.$order->id.'-'.Str::uuid(),
+                'payment_method' => $method->code,
+                'type' => 'qris',
+                'payment_mode' => 'manual',
+                'gross_amount' => $grossAmount,
+                'admin_fee_amount' => $fee['admin_fee'],
+                'admin_fee_tax' => $fee['tax'],
+                'qr_url' => Storage::disk('public')->url($setting->manual_qris_path),
+                'status' => 'pending',
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'payment_id' => $payment->id,
+                'reused' => false,
+            ]);
+        }
 
         try {
             $payment = $this->charge(
@@ -82,6 +110,7 @@ class PaymentController extends Controller
         return response()->json([
             'id' => $payment->id,
             'type' => $payment->type,
+            'payment_mode' => $payment->payment_mode,
             'payment_method' => $payment->payment_method,
             'gross_amount' => $payment->gross_amount,
             'admin_fee_amount' => $payment->admin_fee_amount,
@@ -91,6 +120,14 @@ class PaymentController extends Controller
             'bank' => $payment->bank,
             'expires_at' => $payment->expires_at,
             'status' => $payment->status,
+            'qr_mime' => $payment->payment_mode === 'manual'
+                ? PaymentSetting::current()->manual_qris_mime
+                : null,
+            'proof_submitted_at' => $payment->proof_submitted_at,
+            'proof_original_name' => $payment->proof_original_name,
+            'whatsapp_url' => $payment->payment_mode === 'manual'
+                ? $this->whatsappUrl($payment)
+                : null,
         ]);
     }
 
@@ -101,6 +138,10 @@ class PaymentController extends Controller
     ): JsonResponse {
         $payment = Payment::with('order')->findOrFail($id);
         $this->ensureOrderAccess($request, $payment->order);
+
+        if ($payment->payment_mode === 'manual') {
+            return response()->json(['status' => $payment->status]);
+        }
 
         try {
             $response = $midtrans->getTransactionStatus($payment->midtrans_order_id);
@@ -191,6 +232,14 @@ class PaymentController extends Controller
             return response()->json(['message' => 'Pembayaran tidak ditemukan.'], 404);
         }
 
+        if ($lastPayment->payment_mode === 'manual') {
+            return response()->json([
+                'success' => true,
+                'payment_id' => $lastPayment->id,
+                'reused' => true,
+            ]);
+        }
+
         try {
             $payment = $this->charge(
                 $midtrans,
@@ -257,6 +306,7 @@ class PaymentController extends Controller
             'transaction_id' => $response->transaction_id,
             'midtrans_order_id' => $response->order_id,
             'payment_method' => $method,
+            'payment_mode' => 'realtime',
             'gross_amount' => $grossAmount,
             'admin_fee_amount' => $adminFee,
             'admin_fee_tax' => $adminFeeTax,
@@ -270,7 +320,7 @@ class PaymentController extends Controller
     {
         $payment = $order->payments()->latest()->first();
 
-        if (! $payment || $payment->status !== 'pending') {
+        if (! $payment || ! in_array($payment->status, ['pending', 'awaiting_confirmation'], true)) {
             return null;
         }
 
@@ -285,6 +335,87 @@ class PaymentController extends Controller
         }
 
         return $payment;
+    }
+
+    public function submitProof(Request $request, Payment $payment): JsonResponse
+    {
+        $payment->load('order');
+        $this->ensureOrderAccess($request, $payment->order);
+
+        abort_unless($payment->payment_mode === 'manual', 422, 'Bukti bayar hanya digunakan untuk pembayaran manual.');
+        abort_if($payment->status === 'paid', 422, 'Pembayaran ini sudah dikonfirmasi lunas.');
+
+        $validated = $request->validate([
+            'proof' => [
+                'required',
+                'file',
+                'max:5120',
+                'mimetypes:application/pdf,image/jpeg,image/png,image/webp',
+            ],
+        ]);
+
+        if ($payment->proof_path) {
+            Storage::disk('local')->delete($payment->proof_path);
+        }
+
+        $file = $validated['proof'];
+        $path = $file->store('payment-proofs', 'local');
+
+        $payment->update([
+            'proof_path' => $path,
+            'proof_original_name' => $file->getClientOriginalName(),
+            'proof_submitted_at' => now(),
+            'status' => 'awaiting_confirmation',
+        ]);
+        $payment->order->update(['payment_status' => 'awaiting_confirmation']);
+
+        return response()->json([
+            'message' => 'Bukti pembayaran berhasil dikirim.',
+            'status' => 'awaiting_confirmation',
+            'proof_submitted_at' => $payment->proof_submitted_at,
+            'whatsapp_url' => $this->whatsappUrl($payment),
+        ]);
+    }
+
+    public function proof(Request $request, Payment $payment)
+    {
+        $payment->load('order');
+        $this->ensureOrderAccess($request, $payment->order);
+        abort_unless($payment->proof_path && Storage::disk('local')->exists($payment->proof_path), 404);
+
+        return Storage::disk('local')->download(
+            $payment->proof_path,
+            $payment->proof_original_name ?: 'bukti-pembayaran-'.$payment->id
+        );
+    }
+
+    public function confirmManualPayment(Request $request, Payment $payment): JsonResponse
+    {
+        abort_unless($request->user()?->isSuperAdmin(), 403);
+        abort_unless($payment->payment_mode === 'manual', 422, 'Pembayaran ini bukan pembayaran manual.');
+        abort_unless($payment->proof_path, 422, 'Pelanggan belum mengunggah bukti pembayaran.');
+
+        $payment = $this->applyMidtransStatus($payment, 'settlement');
+
+        return response()->json([
+            'message' => 'Pembayaran manual berhasil dikonfirmasi lunas.',
+            'data' => $payment,
+        ]);
+    }
+
+    private function whatsappUrl(Payment $payment): ?string
+    {
+        $number = PaymentSetting::current()->whatsapp_number;
+
+        if (! $number) {
+            return null;
+        }
+
+        $message = "Halo Lucky Pet, saya sudah membayar pesanan #{$payment->order_id} sebesar Rp "
+            .number_format((int) $payment->gross_amount, 0, ',', '.')
+            .'. Bukti pembayaran sudah saya unggah di website. Mohon dikonfirmasi.';
+
+        return 'https://wa.me/'.$number.'?text='.rawurlencode($message);
     }
 
     private function applyMidtransStatus(

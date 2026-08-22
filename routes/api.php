@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\FlashSaleController;
 use App\Http\Controllers\Api\HeroSectionController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\PaymentMethodController;
+use App\Http\Controllers\Api\PaymentSettingController;
 use App\Http\Controllers\Api\RajaOngkirAdminController;
 use App\Http\Controllers\Api\RajaOngkirController;
 use App\Http\Controllers\OrderController;
@@ -73,6 +74,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/payments/check-status/{id}', [PaymentController::class, 'checkStatus']);
     Route::get('/payments/{id}', [PaymentController::class, 'show']);
     Route::post('/payments/retry/{order}', [PaymentController::class, 'retryPayment']);
+    Route::post('/payments/{payment}/proof', [PaymentController::class, 'submitProof']);
+    Route::get('/payments/{payment}/proof', [PaymentController::class, 'proof']);
 });
 
 Route::prefix('admin')
@@ -80,6 +83,7 @@ Route::prefix('admin')
     ->group(function () {
         Route::get('/orders', [OrderController::class, 'index']);
         Route::put('/orders/{id}/status', [OrderController::class, 'updateStatus']);
+        Route::put('/payments/{payment}/confirm', [PaymentController::class, 'confirmManualPayment']);
 
         Route::get('/hero-sections', [HeroSectionController::class, 'index']);
         Route::post('/hero-sections', [HeroSectionController::class, 'store']);
@@ -131,6 +135,8 @@ Route::prefix('admin')
             Route::post('/payment-methods', [PaymentMethodController::class, 'store']);
             Route::put('/payment-methods/{paymentMethod}', [PaymentMethodController::class, 'update']);
             Route::delete('/payment-methods/{paymentMethod}', [PaymentMethodController::class, 'destroy']);
+            Route::get('/payment-settings', [PaymentSettingController::class, 'show']);
+            Route::post('/payment-settings', [PaymentSettingController::class, 'update']);
 
             Route::get('/rajaongkir', [RajaOngkirAdminController::class, 'show']);
             Route::put('/rajaongkir/setting', [RajaOngkirAdminController::class, 'updateSetting']);

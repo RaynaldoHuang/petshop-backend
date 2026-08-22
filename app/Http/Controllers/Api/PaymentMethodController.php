@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\PaymentMethod;
+use App\Models\PaymentSetting;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -20,11 +21,13 @@ class PaymentMethodController extends Controller
 
     public function index()
     {
-        return response()->json(
-            PaymentMethod::where('is_active', true)
-                ->orderBy('sort_order')
-                ->get()
-        );
+        $query = PaymentMethod::where('is_active', true);
+
+        if (PaymentSetting::current()->isManual()) {
+            $query->where('code', 'qris');
+        }
+
+        return response()->json($query->orderBy('sort_order')->get());
     }
 
     public function adminIndex()
